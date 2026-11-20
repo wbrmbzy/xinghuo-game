@@ -1,0 +1,100 @@
+<!DOCTYPE html><html lang="zh-CN"><head><meta charset="UTF-8"><meta name="viewport" content="width=device-width,initial-scale=1,maximum-scale=1,user-scalable=no"><title>星火成帆 · 互动艺术体验</title><style>*{box-sizing:border-box}html,body{margin:0;width:100%;height:100%;overflow:hidden;background:#000000;color:#f1dfd0;font-family:system-ui,'Microsoft YaHei',sans-serif;touch-action:none}canvas{position:absolute;inset:0;width:100%;height:100%;display:block}#ui{position:absolute;inset:0;pointer-events:none}#center{position:absolute;top:14%;left:0;right:0;text-align:center;padding:0 24px}h1{font-size:clamp(24px,5vw,36px);font-weight:400;letter-spacing:8px;margin:0 0 12px}#desc{font-size:13px;line-height:1.8;color:#b8b6b7;letter-spacing:1px}#bottom{position:absolute;bottom:5%;left:18px;right:18px;text-align:center;color:#c4b3ad;font-size:12px;letter-spacing:1px}button{pointer-events:auto;background:rgba(192,80,70,.17);border:1px solid #ad5b55;color:#f5d6c4;padding:11px 20px;border-radius:30px;cursor:pointer;letter-spacing:2px}#next{display:none;margin-top:14px}#reset{position:absolute;right:20px;bottom:20px;padding:8px 13px;font-size:11px;opacity:.8}#ink{position:absolute;top:25%;right:10%;writing-mode:vertical-rl;text-orientation:upright;font-family:"STXingkai","华文行楷","STKaiti","KaiTi","楷体",cursive;font-size:clamp(24px,5vw,36px);letter-spacing:.28em;line-height:1.7;color:#494949;opacity:0;transition:opacity 2.2s ease;pointer-events:none;white-space:nowrap;filter:blur(.35px)}#ink.visible{opacity:.65}#inkLeft{position:absolute;top:32%;left:9%;writing-mode:vertical-rl;text-orientation:upright;font-family:"STXingkai","华文行楷","STKaiti","KaiTi","楷体",cursive;font-size:clamp(22px,4.6vw,34px);letter-spacing:.28em;line-height:1.7;color:#494949;opacity:0;transition:opacity 2.2s ease;pointer-events:none;white-space:nowrap;filter:blur(.35px)}#inkLeft.visible{opacity:.52}#inkLeft.fading{opacity:0;transition:opacity 5s linear}#veil{position:absolute;inset:0;background:#000;opacity:0;pointer-events:none;transition:opacity .9s ease}#veil.on{opacity:1}#ink.fading{opacity:0;transition:opacity 5s linear}#card{position:absolute;top:50%;left:50%;transform:translate(-50%,-50%);width:min(86vw,360px);background:rgba(0,0,0,.95);border:1px solid #9a5b54;padding:25px;display:none;pointer-events:auto;text-align:center;box-shadow:0 0 80px #0009}#card h2{font-size:19px;font-weight:400;letter-spacing:3px}#card p{font-size:13px;line-height:2;color:#c7c0bd}#card button{margin-top:8px}#hint{opacity:.8}#center{transition:opacity .65s ease}#center.title-fade{opacity:0}#modelBtn{display:none;position:absolute;left:50%;bottom:12%;transform:translateX(-50%);background:rgba(0,0,0,.72);border:1px solid #6e4a44;color:#d6b8a8;white-space:nowrap;z-index:6}#modelView{display:none;position:absolute;inset:0;background:#000;z-index:10;pointer-events:auto}#modelView.open{display:block}#modelCanvas{width:100%;height:100%;display:block;touch-action:none}#modelClose{position:absolute;right:22px;top:25px;border:1px solid #555;background:#090909;color:#ddd;padding:9px 15px}#modelLabel{position:absolute;top:9%;left:0;right:0;text-align:center;font-size:17px;letter-spacing:6px;color:#8d7770;pointer-events:none}#modelHint{position:absolute;bottom:7%;left:0;right:0;text-align:center;font-size:12px;letter-spacing:2px;color:#777;pointer-events:none}#sound{position:absolute;left:20px;bottom:20px;padding:8px 13px;font-size:11px;opacity:.8}@media(min-width:800px){#center{top:10%}#bottom{bottom:6%}}</style></head><body><canvas id="c"></canvas><div id="ui"><div id="center"><h1 id="title">星 火</h1><div id="desc">一颗星火，也能照亮前路</div><button id="next">继续前行 →</button></div><div id="ink" aria-hidden="true"></div><div id="inkLeft" aria-hidden="true"></div><div id="veil" aria-hidden="true"></div><div id="bottom"><span id="hint">长按屏幕，唤醒星火</span></div><button id="modelBtn">查看船帆模型 →</button><div id="modelView"><canvas id="modelCanvas"></canvas><div id="modelLabel">聚 · 虚 幻 之 帆</div><div id="modelHint">拖动改变视角 · 双指缩放</div><button id="modelClose">返回体验 ×</button></div><button id="sound">声音：关</button><button id="reset">重新开始</button><div id="card"><h2 id="cardTitle"></h2><p id="cardText"></p><button id="cardContinue">继续体验 →</button></div></div><script>
+(()=>{'use strict';const canvas=document.querySelector('#c'),ctx=canvas.getContext('2d');let W=0,H=0,DPR=1,phase=0,energy=0,done=false,transition=false,last=0,frame=0,rot=.25,tilt=.13,zoom=1,autoRot=true,hold=false,gestureStart=null,prevPointer=null,pinchDistance=0,audioCtx=null,soundOn=false;const N=850,P=[],TAU=Math.PI*2;const titles=['星 火','征 途','渡 江','千 帆'],descs=['一颗星火，也能照亮前路','循着光的方向，穿越漫漫征途','让分散的力量汇聚成帆','从二维星火，凝聚为三维雕塑'],hints=['长按屏幕，唤醒星火','按住并拖动，引导光带向前','在江面滑动，汇聚三艘船帆','向上滑动，让粒子升起并成形'];const $=s=>document.querySelector(s);const rnd=(a,b)=>a+Math.random()*(b-a),clamp=(v,a,b)=>Math.max(a,Math.min(b,v));function resize(){DPR=Math.min(devicePixelRatio||1,2);W=innerWidth;H=innerHeight;canvas.width=Math.round(W*DPR);canvas.height=Math.round(H*DPR);ctx.setTransform(DPR,0,0,DPR,0,0)}window.addEventListener('resize',resize);resize();for(let i=0;i<N;i++)P.push({x:rnd(-1,1),y:rnd(-1,1),vx:0,vy:0,seed:Math.random(),size:rnd(.7,2.1),depth:rnd(-1,1)});let pointer={x:W/2,y:H/2,down:false},trail=[];let inkTriggered=false,inkTimer=null,inkLeftTimer=null,advanceTimer=null,transitionStart=0,transitionDuration=2.9,modelOpen=false,modelRot=.45,modelTilt=.18,modelZoom=1.25,modelDrag=null,modelTouches=new Map(),modelPinch=0;const inkLines=['星火不灭，信念长存','山河为证，步履不停','千帆竞渡，众志成城','聚沙成塔，星火成帆'];function fadeInk(){if(inkTriggered)return;inkTriggered=true;for(const el of [$('#ink'),$('#inkLeft')]){el.classList.remove('visible');el.classList.add('fading')}}function showInk(n){clearTimeout(inkTimer);clearTimeout(inkLeftTimer);inkTriggered=false;const right=$('#ink'),left=$('#inkLeft');right.className='';left.className='';right.textContent=inkLines[n];left.textContent=['微光所至，皆是征途','山高水远，初心如炬','江流不息，万众同心','星河汇聚，千帆共进'][n];inkTimer=setTimeout(()=>{if(!inkTriggered)right.classList.add('visible')},250);inkLeftTimer=setTimeout(()=>{if(!inkTriggered)left.classList.add('visible')},2400)}function tone(freq=440,dur=.12){if(!soundOn)return;try{audioCtx??=new(window.AudioContext||window.webkitAudioContext)();audioCtx.resume();const o=audioCtx.createOscillator(),g=audioCtx.createGain();o.type='sine';o.frequency.value=freq;g.gain.setValueAtTime(.0001,audioCtx.currentTime);g.gain.exponentialRampToValueAtTime(.05,audioCtx.currentTime+.02);g.gain.exponentialRampToValueAtTime(.0001,audioCtx.currentTime+dur);o.connect(g);g.connect(audioCtx.destination);o.start();o.stop(audioCtx.currentTime+dur+.01)}catch(e){}}function setPhase(n){clearTimeout(advanceTimer);phase=n;energy=0;done=false;transition=false;trail=[];showInk(n);$('#center').classList.remove('title-fade');$('#modelBtn').style.display='none';$('#title').textContent=titles[n];$('#desc').textContent=descs[n];$('#hint').textContent=hints[n];$('#next').style.display='none';$('#card').style.display='none';autoRot=true;tone(440+n*100,.3)}function complete(){if(done)return;done=true;energy=100;tone(620,.2);setTimeout(()=>tone(830,.3),150);if(phase<3){$('#hint').textContent='';advanceTimer=setTimeout(()=>{transition=true;transitionStart=performance.now();$('#center').classList.add('title-fade');},650);}else{$('#hint').textContent='拖动旋转 · 双指缩放 · 点击雕塑唤醒光波';$('#next').style.display='none';autoRot=true;$('#modelBtn').style.display='block';}}function advance(){if(phase>=3)return;const cardTitles=['信念的星火','坚定的征途','渡江的力量'];const cardTexts=['长征精神包含坚定革命理想和信念、团结奋斗等重要内涵。','红军长征发生于1934年至1936年，经历艰难险阻，展现了不屈不挠的精神。','1949年渡江战役是中国人民解放战争中的重要战役。本作品用船帆与粒子表达集体力量。'];$('#cardTitle').textContent=cardTitles[phase];$('#cardText').textContent=cardTexts[phase];$('#card').style.display='block';}$('#next').onclick=()=>setPhase(phase+1);$('#cardContinue').onclick=()=>setPhase(phase+1);$('#reset').onclick=()=>setPhase(0);$('#sound').onclick=()=>{soundOn=!soundOn;$('#sound').textContent='声音：'+(soundOn?'开':'关');tone(660,.15)};function pos(e){return{x:e.clientX,y:e.clientY}}canvas.addEventListener('pointerdown',e=>{canvas.setPointerCapture(e.pointerId);pointer={...pos(e),down:true};if(!done)fadeInk();hold=true;gestureStart=pos(e);prevPointer=pos(e);if(phase===3&&done)autoRot=false;});canvas.addEventListener('pointermove',e=>{const p=pos(e);if(pointer.down){if(phase===3&&done&&prevPointer){rot+=(p.x-prevPointer.x)*.007;tilt=clamp(tilt+(p.y-prevPointer.y)*.004,-.55,.65)}else{trail.push({x:p.x,y:p.y,life:1});if(trail.length>130)trail.shift();energy+=phase===0?.15:phase===1?.15:phase===2?.175:.4;}}pointer.x=p.x;pointer.y=p.y;prevPointer=p;});function release(){pointer.down=false;hold=false;gestureStart=null;prevPointer=null}canvas.addEventListener('pointerup',release);canvas.addEventListener('pointercancel',release);canvas.addEventListener('wheel',e=>{if(phase===3&&done){zoom=clamp(zoom-e.deltaY*.001,.65,1.8);e.preventDefault()}},{passive:false});let touches=new Map();canvas.addEventListener('pointerdown',e=>touches.set(e.pointerId,pos(e)));canvas.addEventListener('pointermove',e=>{if(touches.has(e.pointerId))touches.set(e.pointerId,pos(e));if(touches.size===2&&phase===3&&done){const [a,b]=[...touches.values()],d=Math.hypot(a.x-b.x,a.y-b.y);if(pinchDistance)zoom=clamp(zoom*d/pinchDistance,.65,1.8);pinchDistance=d}});['pointerup','pointercancel'].forEach(ev=>canvas.addEventListener(ev,e=>{touches.delete(e.pointerId);pinchDistance=0}));function target(p,i,t){const a=i*2.39996,s=Math.sqrt(i/N);if(phase===0){let r=(1-energy/135)*(W*.32*s)+8;const cx=pointer.down?pointer.x:W/2,cy=pointer.down?pointer.y:H*.56;return{x:cx+Math.cos(a+t*.12)*r,y:cy+Math.sin(a+t*.12)*r*.85}}if(phase===1){const u=i/N,tx=W*(.08+.84*u),ty=H*(.6-.19*Math.sin(u*TAU*1.25)-.09*Math.sin(u*TAU*3));return{x:tx+Math.cos(a+t)*((1-energy/125)*55+6)*p.seed,y:ty+Math.sin(a+t)*((1-energy/125)*55+6)*p.seed}}if(phase===2){const boat=i%3,local=Math.floor(i/3)/Math.ceil(N/3),cx=W*(.25+boat*.25),cy=H*(.67+(boat%2)*.06),angle=local*TAU*1.3;let x,y;if(local<.76){let u=local/.76,v=((i*17)%101)/101; x=cx+(v-.5)*Math.max(3,(1-u)*W*.16);y=cy-u*H*.27;}else{x=cx+Math.cos(angle)*W*.1;y=cy+Math.sin(angle)*8;}let spread=(1-energy/125)*65;return{x:x+Math.cos(a)*spread*p.seed,y:y+Math.sin(a)*spread*p.seed}}return{x:W/2,y:H/2}}function modelPoint(i){const group=i%5,u=(Math.floor(i/5)%170)/169,v=((i*47)%101)/100,ang=(group-2)*.48;const height=[1.1,1.55,1.85,1.35,1.6][group],baseX=(group-2)*.48;let x,y,z;if(i%7===0){x=baseX+.16*Math.cos(u*TAU);y=-1.05+u*.7;z=.15*Math.sin(u*TAU)}else{x=baseX+(v-.5)*(.65*(1-u));y=-.85+u*height;z=Math.sin(v*Math.PI)*(.18+group*.025)+ang*.5+u*u*.24}return{x,y,z}}function project(m){let x=m.x,y=m.y,z=m.z;let X=x*Math.cos(rot)-z*Math.sin(rot),Z=x*Math.sin(rot)+z*Math.cos(rot),Y=y*Math.cos(tilt)-Z*Math.sin(tilt);Z=y*Math.sin(tilt)+Z*Math.cos(tilt);let perspective=3.9/(3.9+Z),scale=Math.min(W*.3,H*.24)*zoom;return{x:W/2+X*scale*perspective,y:H*.57-Y*scale*perspective,depth:Z,scale:perspective}}function background(t){ctx.fillStyle='#000000';ctx.fillRect(0,0,W,H);ctx.strokeStyle='rgba(91,137,155,.09)';ctx.lineWidth=1;if(phase>=2){for(let j=0;j<13;j++){ctx.beginPath();let y=H*(.65+j*.025);for(let x=0;x<W+8;x+=8){let yy=y+Math.sin(x*.015+t*1.2+j)*3;if(x===0)ctx.moveTo(x,yy);else ctx.lineTo(x,yy)}ctx.stroke()}}}function render(t,dt){background(t);const transitionProgress=transition?clamp((performance.now()-transitionStart)/(transitionDuration*1000),0,1):0;if(transition){ctx.fillStyle=`rgba(0,0,0,${Math.min(1,transitionProgress*1.65)})`;ctx.fillRect(0,0,W,H)}if(!transition&&pointer.down&&!done){energy+=dt*(phase===0?10:phase===1?3:phase===2?3.5:4)}if(!transition&&phase===1&&trail.length>0)energy+=dt*.4;energy=clamp(energy,0,100);if(energy>=100&&!done)complete();if(phase===3&&done&&autoRot)rot+=dt*.07;const points=[];for(let i=0;i<N;i++){const p=P[i];let q;if(phase<3){q=target(p,i,t);if(pointer.down&&!done){const dx=pointer.x-q.x,dy=pointer.y-q.y,d=Math.hypot(dx,dy);if(d<130&&phase!==0){q.x+=dx*.14;q.y+=dy*.14}}}else{const m=modelPoint(i),k=clamp(energy/100,0,1),flat={x:(m.x)*.9,y:m.y,z:0};const blended={x:flat.x+(m.x-flat.x)*k,y:flat.y+(m.y-flat.y)*k,z:m.z*k};q=project(blended);if(!done){q.x+=(1-k)*Math.sin(i*2.4+t)*W*.26;q.y+=(1-k)*Math.cos(i*1.7+t)*H*.2}}if(!Number.isFinite(p.px)){p.px=rnd(0,W);p.py=rnd(0,H)}p.vx=(p.vx+(q.x-p.px)*Math.min(dt*dt*12,.05))*.88;p.vy=(p.vy+(q.y-p.py)*Math.min(dt*dt*12,.05))*.88;p.px+=p.vx;p.py+=p.vy;points.push({p,i,z:q.depth||0})}if(phase===3)points.sort((a,b)=>b.z-a.z);for(const {p,i} of points){if(phase===0&&i%2===1)continue;const afterglow=transition?Math.pow(1-clamp((transitionProgress-.58)/.42,0,1),1.5):1;const pulse=afterglow*(phase===0?.84:1)*(.7+.3*Math.sin(t*1.8+p.seed*TAU)),r=p.size*(phase===3?1.05:1);ctx.beginPath();ctx.fillStyle=i%8===0?`rgba(246,194,143,${pulse})`:`rgba(227,91,77,${pulse*.88})`;ctx.shadowColor='#e96850';ctx.shadowBlur=(phase===0?.84:1)*(i%4===0?13:5);ctx.arc(p.px,p.py,r,0,TAU);ctx.fill()}ctx.shadowBlur=0;if(transition&&transitionProgress>=1){setPhase(phase+1);return}if(phase===1&&!transition){ctx.strokeStyle='rgba(232,108,86,.24)';ctx.lineWidth=2;ctx.beginPath();for(let i=0;i<trail.length;i++){const v=trail[i];if(i===0)ctx.moveTo(v.x,v.y);else ctx.lineTo(v.x,v.y)}ctx.stroke()}if(phase===3&&done){ctx.save();ctx.globalAlpha=.25;ctx.fillStyle='#ca6558';ctx.beginPath();ctx.ellipse(W/2,H*.84,Math.min(W*.3,160)*zoom,9,0,0,TAU);ctx.fill();ctx.restore()}trail=trail.filter(p=>(p.life-=dt*.4)>0);if(trail.length>130)trail.splice(0,trail.length-130)}const mc=$('#modelCanvas'),mx=mc.getContext('2d');function modelResize(){let d=Math.min(devicePixelRatio||1,2);mc.width=Math.round(innerWidth*d);mc.height=Math.round(innerHeight*d);mx.setTransform(d,0,0,d,0,0)}window.addEventListener('resize',modelResize);modelResize();$('#modelBtn').onclick=()=>{modelOpen=true;modelRot=rot;modelTilt=tilt;modelZoom=Math.max(1.15,zoom);$('#modelView').classList.add('open')};$('#modelClose').onclick=()=>{modelOpen=false;$('#modelView').classList.remove('open')};mc.addEventListener('pointerdown',e=>{mc.setPointerCapture(e.pointerId);modelTouches.set(e.pointerId,{x:e.clientX,y:e.clientY});modelDrag={x:e.clientX,y:e.clientY}});mc.addEventListener('pointermove',e=>{if(!modelTouches.has(e.pointerId))return;modelTouches.set(e.pointerId,{x:e.clientX,y:e.clientY});if(modelTouches.size===2){let [a,b]=[...modelTouches.values()],d=Math.hypot(a.x-b.x,a.y-b.y);if(modelPinch)modelZoom=clamp(modelZoom*d/modelPinch,.65,2.5);modelPinch=d;modelDrag=null}else if(modelDrag){modelRot+=(e.clientX-modelDrag.x)*.008;modelTilt=clamp(modelTilt+(e.clientY-modelDrag.y)*.004,-.7,.75);modelDrag={x:e.clientX,y:e.clientY}}});['pointerup','pointercancel'].forEach(type=>mc.addEventListener(type,e=>{modelTouches.delete(e.pointerId);modelPinch=0;modelDrag=null}));mc.addEventListener('wheel',e=>{modelZoom=clamp(modelZoom-e.deltaY*.001,.65,2.5);e.preventDefault()},{passive:false});function drawModel(t){
+ if(!modelOpen)return;
+ mx.fillStyle='#000';mx.fillRect(0,0,W,H);
+ const scale=Math.min(W*.35,H*.285)*modelZoom;
+ function proj(x,y,z){
+   const xx=x*Math.cos(modelRot)-z*Math.sin(modelRot);
+   const zz=x*Math.sin(modelRot)+z*Math.cos(modelRot);
+   const yy=y*Math.cos(modelTilt)-zz*Math.sin(modelTilt);
+   const depth=y*Math.sin(modelTilt)+zz*Math.cos(modelTilt);
+   const f=4.6/(4.6+depth);
+   return {x:W/2+xx*scale*f,y:H*.57-yy*scale*f,z:depth,f};
+ }
+ // Five volumetric, curved, translucent sails, with back faces and depth.
+ const sails=[
+  {x:-.95,z:.23,h:1.38,w:.62,bend:-.16,twist:.17},
+  {x:-.48,z:-.24,h:1.87,w:.72,bend:.13,twist:-.2},
+  {x:.02,z:.10,h:2.20,w:.82,bend:.23,twist:.25},
+  {x:.54,z:-.31,h:1.66,w:.70,bend:-.16,twist:-.23},
+  {x:1.02,z:.18,h:1.83,w:.68,bend:.17,twist:.18}
+ ];
+ const faces=[],dots=[];
+ function surface(s,u,v,back){
+   const width=s.w*(1-u)*(.92+.08*Math.sin(Math.PI*u));
+   const sway=Math.sin(t*.52+s.x*2+u*2.2)*.016*u;
+   return {
+    x:s.x+(v-.5)*width+s.bend*u*u+sway+(back?.045:0),
+    y:-.94+u*s.h,
+    z:s.z+Math.sin(v*Math.PI)*(.23+.13*u)+s.twist*u*(v-.5)+(back?-.085:0)
+   };
+ }
+ for(let g=0;g<sails.length;g++){
+   const s=sails[g],rows=18,cols=11;
+   for(let side=0;side<2;side++){
+    for(let a=0;a<rows;a++)for(let b=0;b<cols;b++){
+      const u=a/rows,v=b/cols,du=1/rows,dv=1/cols;
+      const p0=proj(...Object.values(surface(s,u,v,side)));
+      const p1=proj(...Object.values(surface(s,u+du,v,side)));
+      const p2=proj(...Object.values(surface(s,u+du,v+dv,side)));
+      const p3=proj(...Object.values(surface(s,u,v+dv,side)));
+      faces.push({p:[p0,p1,p2,p3],z:(p0.z+p1.z+p2.z+p3.z)/4,g,side,u,v});
+    }
+   }
+   for(let k=0;k<440;k++){
+      const u=((k*71+g*37)%443)/443,v=((k*173+g*19)%449)/449;
+      const p=surface(s,u,v,false),q=proj(p.x,p.y,p.z);
+      dots.push({x:q.x,y:q.y,z:q.z,f:q.f,k,g,edge:v<.04||v>.96||u>.96});
+   }
+   // detached particles that drift in the space around each sail
+   for(let k=0;k<90;k++){
+     const u=((k*29+g*13)%97)/97,v=((k*43+g*31)%101)/101;
+     const p=surface(s,u,v,false);
+     p.x+=Math.sin(k*3.1+t*.5+g)*(.08+.13*v);
+     p.y+=Math.sin(k*1.4+t*.7)*.10;
+     p.z+=Math.cos(k*2.3+t*.4)*.21;
+     const q=proj(p.x,p.y,p.z);
+     dots.push({x:q.x,y:q.y,z:q.z,f:q.f,k,g,edge:false,drift:true});
+   }
+ }
+ faces.sort((a,b)=>b.z-a.z);
+ for(const f of faces){
+   const p=f.p,shine=Math.max(0,Math.cos(modelRot*.8+f.v*2.4+f.g*.4));
+   mx.beginPath();mx.moveTo(p[0].x,p[0].y);
+   for(let j=1;j<4;j++)mx.lineTo(p[j].x,p[j].y);
+   mx.closePath();
+   mx.fillStyle=f.side
+      ?`rgba(77,16,26,${.20+.11*shine})`
+      :`rgba(${Math.round(120+45*shine)},${Math.round(31+27*shine)},${Math.round(39+16*shine)},${.17+.16*shine})`;
+   mx.fill();
+ }
+ // Edge filaments give a clear silhouette at every camera angle.
+ for(let g=0;g<sails.length;g++){
+   const s=sails[g];
+   for(const v of [0,1]){
+     mx.beginPath();
+     for(let j=0;j<=45;j++){
+       const p=surface(s,j/45,v,false),q=proj(p.x,p.y,p.z);
+       if(j===0)mx.moveTo(q.x,q.y);else mx.lineTo(q.x,q.y);
+     }
+     mx.strokeStyle='rgba(237,113,94,.55)';
+     mx.lineWidth=1.1;mx.shadowBlur=9;mx.shadowColor='#b7342c';mx.stroke();
+   }
+ }
+ dots.sort((a,b)=>b.z-a.z);
+ for(const q of dots){
+   const pulse=.74+.26*Math.sin(t*1.5+q.k*.38+q.g);
+   const alpha=(q.drift?.28:q.edge?.95:.68)*pulse;
+   mx.beginPath();
+   mx.fillStyle=q.k%9===0?`rgba(255,199,151,${alpha})`:`rgba(237,91,76,${alpha})`;
+   mx.shadowColor='#e8503f';mx.shadowBlur=q.edge?12:q.drift?4:6;
+   mx.arc(q.x,q.y,(q.edge?1.7:q.drift?.75:1.15)*q.f,0,TAU);
+   mx.fill();
+ }
+ mx.shadowBlur=0;
+ // A faint ground reflection makes the installation feel spatial.
+ const grd=mx.createRadialGradient(W/2,H*.86,3,W/2,H*.86,Math.min(W*.48,230));
+ grd.addColorStop(0,'rgba(131,41,38,.17)');grd.addColorStop(1,'rgba(0,0,0,0)');
+ mx.fillStyle=grd;mx.beginPath();mx.ellipse(W/2,H*.86,Math.min(W*.45,230),24,0,0,TAU);mx.fill();
+}function loop(now){let dt=Math.min((now-last)/1000||.016,.05);last=now;frame++;render(now/1000,dt);drawModel(now/1000);requestAnimationFrame(loop)}setPhase(0);requestAnimationFrame(loop)})();
+</script></body></html>
